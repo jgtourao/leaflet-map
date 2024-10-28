@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa com Leaflet e OpenRouteService</title>
+    
+    <!-- Link para o CSS do Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <style>
+        /* Estilo para o mapa ocupar a tela inteira */
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Biblioteca Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <script>
+        // Variáveis de configuração
+        const apiKey = "5b3ce3597851110001cf624859768f3976cb435a8aeb71c5362150bb";
+
+        // Verifica se está em um dispositivo móvel para ajustar o nível de zoom
+        var isMobile = window.innerWidth <= 768;
+        var zoomLevel = isMobile ? 12 : 13;
+
+        // Inicializa o mapa
+        var map = L.map('map', {
+            center: [-1.45502, -48.5024], // Ponto central do mapa
+            zoom: zoomLevel,
+            tap: false, // Remove o "tap delay" para iOS
+        });
+
+        // Adiciona a camada do OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+        }).addTo(map);
+
+        // Define três pontos de referência com coordenadas e uma mensagem de popup
+        var pontosReferencia = [
+            { coords: [-1.45502, -48.5024], popup: 'Ponto 1: Centro de Belém' },
+            { coords: [-1.4605, -48.4902], popup: 'Ponto 2: Mercado Ver-o-Peso' },
+            { coords: [-1.4621, -48.5122], popup: 'Ponto 3: Estação das Docas' }
+        ];
+
+        // Adiciona os três marcadores no mapa
+        pontosReferencia.forEach(function(ponto) {
+            L.marker(ponto.coords).addTo(map)
+                .bindPopup(ponto.popup);
+        });
+
+        // Função para calcular e exibir a rota entre os pontos
+        async function calcularRota(coordsStart, coordsEnd) {
+            try {
+                const response = await fetch(`https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${coordsStart[1]},${coordsStart[0]}&end=${coordsEnd[1]},${coordsEnd[0]}`);
+                const data = await response.json();
+
+                // Extrai a rota em formato de coordenadas
+                const rota = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                
+                // Desenha a linha da rota no mapa
+                L.polyline(rota, { color: 'blue', weight: 5 }).addTo(map);
+            } catch (error) {
+                console.error('Erro ao calcular rota:', error);
+            }
+        }
+
+        // Função para calcular as rotas entre cada ponto de referência
+        function calcularRotasEntrePontos(pontos) {
+            for (let i = 0; i < pontos.length - 1; i++) {
+                calcularRota(pontos[i].coords, pontos[i + 1].coords);
+            }
+        }
+
+        // Inicia o cálculo das rotas entre os pontos de referência
+        calcularRotasEntrePontos(pontosReferencia);
+
+        // Ajusta a visualização para englobar todos os marcadores
+        var bounds = L.latLngBounds(pontosReferencia.map(p => p.coords));
+        map.fitBounds(bounds, { padding: [50, 50] });
+    </script>
+</body>
+</html>
+
