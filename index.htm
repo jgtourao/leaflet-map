@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -37,60 +37,91 @@
 
     <script>
         const apiKey = "5b3ce3597851110001cf624859768f3976cb435a8aeb71c5362150bb";
-        let map, rotasLayer;
+        let map, rotasLayer, userMarker;
+        let userCoords = null;
 
+        // Pontos de referência para traçar as rotas
         const pontosReferencia = [
-            { coords: [-1.437963, -48.486976], popup: 'Belém - PA, 66050-100: Feira organica' },
-            { coords: [-1.459218, -48.490491], popup: 'Belém - PA, 66015-200: Feirinha da Batista Campos' },
-            { coords: [-1.449076, -48.500122], popup: 'Belém - PA, 66010-080: Estação das Docas' }
+            { coords: [-1.437963, -48.486976], popup: 'Feira orgânica' },
+            { coords: [-1.459218, -48.490491], popup: 'Feirinha da Batista Campos' },
+            { coords: [-1.449076, -48.500122], popup: 'Estação das Docas' }
         ];
 
         function inicializarMapa() {
-            var isMobile = window.innerWidth <= 768;
-            var zoomLevel = isMobile ? 12 : 13;
-
+            // Inicializa o mapa
             map = L.map('map', {
                 center: [-1.45502, -48.5024],
-                zoom: zoomLevel,
+                zoom: 13,
                 tap: false,
             });
 
+            // Camada de tiles (mapa base)
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                 maxZoom: 19,
             }).addTo(map);
 
+            // Camada para as rotas
             rotasLayer = L.layerGroup().addTo(map);
 
-            pontosReferencia.forEach((ponto, index) => {
-                const marker = L.marker(ponto.coords).addTo(map)
-                    .bindPopup(ponto.popup)
-                    .on('click', () => {
+            // Coloca marcadores para cada ponto de referência
+            pontosReferencia.forEach((ponto) => {
+                const marker = L.marker(ponto.coords).addTo(map).bindPopup(ponto.popup);
+                
+                // Ao clicar em um ponto, traça rotas para todos os pontos de referência
+                marker.on('click', () => {
+                    if (userCoords) {
                         const transportMode = document.getElementById('transportMode').value;
-                        calcularRota(pontosReferencia[0].coords, ponto.coords, transportMode);
-                    });
+                        pontosReferencia.forEach(p => traçarRota(userCoords, p.coords, transportMode));
+                    } else {
+                        alert("Aguarde a localização do usuário ser carregada.");
+                    }
+                });
             });
-        }
 
-        async function calcularRota(coordsStart, coordsEnd, transportMode) {
-            try {
-                rotasLayer.clearLayers(); // Limpa rotas anteriores
-                const response = await fetch(`https://api.openrouteservice.org/v2/directions/${transportMode}?api_key=${apiKey}&start=${coordsStart[1]},${coordsStart[0]}&end=${coordsEnd[1]},${coordsEnd[0]}`);
-                const data = await response.json();
-                
-                const rota = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                const duracao = Math.round(data.routes[0].summary.duration / 60);
-
-                L.polyline(rota, { color: 'blue', weight: 5 }).addTo(rotasLayer);
-
-                L.marker(coordsEnd).addTo(rotasLayer)
-                    .bindPopup(`Tempo estimado até aqui: ${duracao} minutos`).openPopup();
-                
-            } catch (error) {
-                console.error('Erro ao calcular rota:', error);
+            // Obter a localização do usuário
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(posicaoUsuario, erroLocalizacao, { enableHighAccuracy: true });
+            } else {
+                alert("Geolocalização não é suportada pelo seu navegador.");
             }
         }
 
+        // Função para marcar a posição do usuário e armazenar as coordenadas
+        function posicaoUsuario(position) {
+            const { latitude, longitude } = position.coords;
+
+            // Marca a posição do usuário no mapa
+            userCoords = [latitude, longitude];
+            userMarker = L.marker(userCoords, { color: 'red' })
+                .addTo(map)
+                .bindPopup("Você está aqui")
+                .openPopup();
+            map.setView(userCoords, 13);
+        }
+
+        function erroLocalizacao() {
+            alert("Não foi possível obter sua localização.");
+        }
+
+        // Função para traçar a rota
+        async function traçarRota(coordsStart, coordsEnd, transportMode) {
+            try {
+                const response = await fetch(`https://api.openrouteservice.org/v2/directions/${transportMode}?api_key=${apiKey}&start=${coordsStart[1]},${coordsStart[0]}&end=${coordsEnd[1]},${coordsEnd[0]}`);
+                const data = await response.json();
+                
+                // Processa as coordenadas da rota
+                const rota = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+                // Adiciona a rota no mapa
+                L.polyline(rota, { color: 'blue', weight: 5 }).addTo(rotasLayer);
+                
+            } catch (error) {
+                console.error('Erro ao traçar rota:', error);
+            }
+        }
+
+        // Inicializa o mapa quando a página é carregada
         window.onload = inicializarMapa;
     </script>
 </body>
