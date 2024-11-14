@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa com Leaflet e OpenRouteService</title>
+    <title>Mapa com Leaflet</title>
     
     <!-- Link para o CSS do Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -12,20 +12,6 @@
         #map {
             height: 90vh;
             width: 100%;
-        }
-        .follow-route-btn, .transport-select {
-            margin-top: 10px;
-            padding: 5px 10px;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        .transport-select {
-            width: 100%;
-            text-align: center;
-            padding: 5px;
         }
     </style>
 </head>
@@ -36,12 +22,11 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
     <script>
-        const apiKey = "5b3ce3597851110001cf624859768f3976cb435a8aeb71c5362150bb";
-        let map, rotasLayer, userMarker;
+        let map, userMarker;
         let userCoords = null;
 
         const pontosReferencia = [
-            { coords: [-1.437963, -48.486976], popup: 'Belém - PA, 66050-100: Feira organica' },
+            { coords: [-1.437963, -48.486976], popup: 'Belém - PA, 66050-100: Feira orgânica' },
             { coords: [-1.459218, -48.490491], popup: 'Belém - PA, 66015-200: Feirinha da Batista Campos' },
             { coords: [-1.449076, -48.500122], popup: 'Belém - PA, 66010-080: Estação das Docas' }
         ];
@@ -58,21 +43,12 @@
                 maxZoom: 19,
             }).addTo(map);
 
-            rotasLayer = L.layerGroup().addTo(map);
-
-            pontosReferencia.forEach((ponto, index) => {
-                const marker = L.marker(ponto.coords).addTo(map).bindPopup(`
-                    ${ponto.popup} <br/>
-                    <select id="transportMode-${index}" class="transport-select">
-                        <option value="foot-walking">A pé</option>
-                        <option value="cycling-regular">Bicicleta</option>
-                        <option value="driving-car">Carro</option>
-                        <option value="driving-motorcycle">Moto</option>
-                    </select>
-                    <button class="follow-route-btn" onclick="seguirRota(${index})">Seguir Rota</button>
-                `);
+            // Adiciona os pontos de referência no mapa
+            pontosReferencia.forEach(ponto => {
+                L.marker(ponto.coords).addTo(map).bindPopup(ponto.popup);
             });
 
+            // Geolocalização do usuário
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(posicaoUsuario, erroLocalizacao, { enableHighAccuracy: true });
                 navigator.geolocation.watchPosition(atualizarPosicaoUsuario, erroLocalizacao, { enableHighAccuracy: true });
@@ -107,42 +83,7 @@
             alert("Não foi possível obter sua localização.");
         }
 
-        function seguirRota(pontoIndex) {
-            if (userCoords) {
-                const transportMode = document.getElementById(`transportMode-${pontoIndex}`).value;
-                const pontosRota = [userCoords, pontosReferencia[pontoIndex].coords];
-                traçarRotaCompleta(pontosRota, transportMode);
-            } else {
-                alert("Aguarde a localização do usuário ser carregada.");
-            }
-        }
-
-        async function traçarRotaCompleta(pontos, transportMode) {
-            rotasLayer.clearLayers();
-
-            for (let i = 0; i < pontos.length - 1; i++) {
-                await traçarSegmento(pontos[i], pontos[i + 1], transportMode);
-            }
-        }
-
-        async function traçarSegmento(coordsStart, coordsEnd, transportMode) {
-            try {
-                const response = await fetch(`https://api.openrouteservice.org/v2/directions/${transportMode}?api_key=${apiKey}&start=${coordsStart[1]},${coordsStart[0]}&end=${coordsEnd[1]},${coordsEnd[0]}`);
-                const data = await response.json();
-
-                if (data.routes && data.routes[0]) {
-                    const rota = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                    L.polyline(rota, { color: 'blue', weight: 5 }).addTo(rotasLayer);
-                } else {
-                    alert("Erro ao traçar a rota. Tente outro modo de transporte.");
-                }
-            } catch (error) {
-                alert("Erro ao traçar rota. Verifique a conexão com a internet.");
-            }
-        }
-
         window.onload = inicializarMapa;
     </script>
 </body>
 </html>
-
